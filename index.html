@@ -120,26 +120,21 @@ const CURRENCY_NAMES = {
     "XOF": { "ru": "Западноафриканский франк", "en": "West African CFA Franc" },
     "XAF": { "ru": "Центральноафриканский франк", "en": "Central African CFA Franc" },
     "VES": { "ru": "Венесуэльский боливар", "en": "Venezuelan Bolivar" },
-    "IRR": { "ru": "Иранский риал", "en": "Iranian Rial" },
     "CUP": { "ru": "Кубинское песо", "en": "Cuban Peso" },
     "DOP": { "ru": "Доминиканское песо", "en": "Dominican Peso" },
     "JMD": { "ru": "Ямайский доллар", "en": "Jamaican Dollar" },
     "TTD": { "ru": "Доллар Тринидада и Тобаго", "en": "Trinidad and Tobago Dollar" },
     "UYU": { "ru": "Уругвайское песо", "en": "Uruguayan Peso" },
     "PYG": { "ru": "Парагвайский гуарани", "en": "Paraguayan Guarani" },
-    "BOB": { "ru": "Боливийский боливиано", "en": "Bolivian Boliviano" },
     "GTQ": { "ru": "Гватемальский кетсаль", "en": "Guatemalan Quetzal" },
     "HNL": { "ru": "Гондурасская лемпира", "en": "Honduran Lempira" },
     "NIO": { "ru": "Никарагуанская кордоба", "en": "Nicaraguan Cordoba" },
     "PAB": { "ru": "Панамский бальбоа", "en": "Panamanian Balboa" },
-    "CRC": { "ru": "Коста-риканский колон", "en": "Costa Rican Colon" },
     "FJD": { "ru": "Фиджийский доллар", "en": "Fijian Dollar" },
     "PGK": { "ru": "Папуа-Новогвинейская кина", "en": "Papua New Guinean Kina" },
     "TOP": { "ru": "Тонганская паанга", "en": "Tongan Paanga" },
     "WST": { "ru": "Самоанская тала", "en": "Samoan Tala" },
     "MOP": { "ru": "Патака Макао", "en": "Macanese Pataca" },
-    "BND": { "ru": "Брунейский доллар", "en": "Brunei Dollar" },
-    "KHR": { "ru": "Камбоджийский риель", "en": "Cambodian Riel" },
     "BAM": { "ru": "Боснийская марка", "en": "Bosnia-Herzegovina Mark" },
     "HRK": { "ru": "Хорватская куна", "en": "Croatian Kuna" },
     "GHS": { "ru": "Ганский седи", "en": "Ghanaian Cedi" },
@@ -266,6 +261,7 @@ let state = {
     toCurrency: localStorage.getItem("toCurrency") || "RUB",
     result: null,
     searchQuery: "",
+    listSearchQuery: "",
     favorites: JSON.parse(localStorage.getItem("favorites") || '["USD","EUR","RUB"]'),
     activeTab: "popular",
     showFromDropdown: false,
@@ -281,6 +277,36 @@ function saveFavorites() { localStorage.setItem("favorites", JSON.stringify(stat
 function saveFrom() { localStorage.setItem("fromCurrency", state.fromCurrency); }
 function saveTo() { localStorage.setItem("toCurrency", state.toCurrency); }
 function saveLang() { localStorage.setItem("lang", state.lang); }
+
+// ===== СОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ ФОКУСА =====
+function saveFocus() {
+    const el = document.activeElement;
+    if (!el || el === document.body) return null;
+    const info = { tag: el.tagName, id: el.id, type: el.type };
+    if (el.selectionStart !== undefined) {
+        info.selectionStart = el.selectionStart;
+        info.selectionEnd = el.selectionEnd;
+    }
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        info.value = el.value;
+    }
+    return info;
+}
+
+function restoreFocus(info) {
+    if (!info) return;
+    let el = null;
+    if (info.id) {
+        el = document.getElementById(info.id);
+    }
+    if (!el) return;
+    el.focus();
+    if (info.selectionStart !== undefined && el.setSelectionRange) {
+        try {
+            el.setSelectionRange(info.selectionStart, info.selectionEnd);
+        } catch(e) {}
+    }
+}
 
 // ===== ЗАГРУЗКА КУРСОВ =====
 async function fetchRates() {
@@ -339,33 +365,59 @@ function toggleFav(code) {
         state.favorites.push(code);
     }
     saveFavorites();
+    const focusInfo = saveFocus();
     render();
+    restoreFocus(focusInfo);
+}
+
+// ===== СОРТИРОВКА: ИЗБРАННЫЕ СВЕРХУ =====
+function sortWithFavorites(codes) {
+    return [...codes].sort((a, b) => {
+        const aFav = state.favorites.includes(a) ? 0 : 1;
+        const bFav = state.favorites.includes(b) ? 0 : 1;
+        if (aFav !== bFav) return aFav - bFav;
+        return a.localeCompare(b);
+    });
 }
 
 // ===== ФИЛЬТРАЦИЯ =====
 function getDisplayCurrencies() {
     if (!state.rates) return [];
-    const all = Object.keys(state.rates).sort();
-    if (state.activeTab === "popular") return all.filter(c => POPULAR.includes(c));
-    if (state.activeTab === "favorites") return all.filter(c => state.favorites.includes(c));
+    const all = Object.keys(state.rates);
+
+    let filtered;
+    if (state.activeTab === "popular") {
+        filtered = all.filter(c => POPULAR.includes(c));
+    } else if (state.activeTab === "favorites") {
+        filtered = all.filter(c => state.favorites.includes(c));
+    } else {
+        const q = state.listSearchQuery.toLowerCase();
+        filtered = all.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
+    }
+
+    return sortWithFavorites(filtered);
+}
+
+function getDropdownCurrencies() {
+    if (!state.rates) return [];
+    const all = Object.keys(state.rates);
     const q = state.searchQuery.toLowerCase();
-    return all.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
+    const filtered = all.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
+    return sortWithFavorites(filtered);
 }
 
 // ===== РЕНДЕР =====
 function render() {
-    const currencies = state.rates ? Object.keys(state.rates).sort() : [];
+    const focusInfo = saveFocus();
     const displayed = getDisplayCurrencies();
 
     document.getElementById("app").innerHTML = `
     <div class="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 relative overflow-hidden">
-        <!-- Background -->
         <div class="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-sky-200/40 to-transparent rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
         <div class="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-indigo-200/40 to-transparent rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
         <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-blue-200/20 to-cyan-200/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
 
         <div class="relative z-10 max-w-6xl mx-auto px-4 py-8 min-h-screen flex flex-col">
-            <!-- Header -->
             <header class="flex items-center justify-between mb-8 flex-wrap gap-4">
                 <div>
                     <h1 class="text-3xl md:text-4xl font-black bg-gradient-to-r from-sky-700 to-blue-600 bg-clip-text text-transparent">${t("title")}</h1>
@@ -377,9 +429,7 @@ function render() {
                 </div>
             </header>
 
-            <!-- Main -->
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 flex-1">
-                <!-- Converter -->
                 <div class="lg:col-span-3">
                     <div class="bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl shadow-sky-100/30 p-6 md:p-8">
                         <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -387,16 +437,14 @@ function render() {
                             ${t("converterTitle")}
                         </h2>
 
-                        <!-- Amount -->
                         <div class="mb-6">
                             <label class="block text-sm font-semibold text-slate-600 mb-2 ml-1">${t("amount")}</label>
                             <div class="relative">
-                                <input type="number" value="${state.amount}" oninput="state.amount=this.value;render()" placeholder="${t("amountPlaceholder")}" class="w-full px-5 py-4 bg-white/80 backdrop-blur-sm border-2 border-sky-100 rounded-2xl text-xl font-bold text-slate-800 focus:outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 transition-all duration-300 placeholder:text-slate-300" />
+                                <input id="input-amount" type="number" value="${state.amount}" oninput="onAmountInput(this)" placeholder="${t("amountPlaceholder")}" class="w-full px-5 py-4 bg-white/80 backdrop-blur-sm border-2 border-sky-100 rounded-2xl text-xl font-bold text-slate-800 focus:outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 transition-all duration-300 placeholder:text-slate-300" />
                                 <span class="absolute right-5 top-1/2 -translate-y-1/2 text-2xl">${getFlag(state.fromCurrency)}</span>
                             </div>
                         </div>
 
-                        <!-- Selectors -->
                         <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-end mb-6">
                             <div class="relative">
                                 <label class="block text-sm font-semibold text-slate-600 mb-2 ml-1">${t("from")}</label>
@@ -429,7 +477,6 @@ function render() {
                             </div>
                         </div>
 
-                        <!-- Convert button -->
                         <button onclick="doConvert()" class="w-full py-4 bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-300/50 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 relative overflow-hidden group">
                             <span class="relative z-10">${t("convert")}</span>
                         </button>
@@ -454,7 +501,6 @@ function render() {
                     </div>
                 </div>
 
-                <!-- Currency List -->
                 <div class="lg:col-span-2">
                     <div class="bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl shadow-sky-100/30 p-6 h-full flex flex-col">
                         <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -462,7 +508,6 @@ function render() {
                             ${t("listTitle")}
                         </h2>
 
-                        <!-- Tabs -->
                         <div class="flex gap-1 bg-sky-50/50 rounded-xl p-1 mb-4">
                             <button onclick="setTab('popular')" class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-300 ${state.activeTab === 'popular' ? 'bg-white shadow-md text-sky-700' : 'text-slate-500 hover:text-sky-600'}">${t("popular")}</button>
                             <button onclick="setTab('favorites')" class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-300 ${state.activeTab === 'favorites' ? 'bg-white shadow-md text-amber-600' : 'text-slate-500 hover:text-amber-500'}">★ ${t("favorites")}</button>
@@ -471,10 +516,9 @@ function render() {
 
                         ${state.activeTab === 'all' ? `<div class="mb-4 relative">
                             <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input type="text" placeholder="${t("searchPlaceholder")}" value="${state.searchQuery}" oninput="state.searchQuery=this.value;render()" class="w-full pl-10 pr-4 py-3 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 transition-all" />
+                            <input id="input-list-search" type="text" placeholder="${t("searchPlaceholder")}" value="${state.listSearchQuery}" oninput="onListSearchInput(this)" class="w-full pl-10 pr-4 py-3 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 transition-all" />
                         </div>` : ''}
 
-                        <!-- List -->
                         <div class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[500px] scrollbar-thin">
                             ${displayed.length === 0 ? `<div class="text-center py-12 text-slate-400"><div class="text-4xl mb-2">🔍</div><div class="text-sm">${t("noResults")}</div></div>` : ''}
                             ${displayed.map(code => `
@@ -501,7 +545,6 @@ function render() {
                 </div>
             </div>
 
-            <!-- Footer -->
             <footer class="mt-8 text-center">
                 <div class="inline-flex items-center gap-2 px-6 py-3 bg-white/50 backdrop-blur-sm rounded-full border border-white/60 shadow-sm">
                     <span class="text-sm font-bold text-slate-500">${t("developer")}</span>
@@ -511,25 +554,28 @@ function render() {
             </footer>
         </div>
     </div>`;
+
+    restoreFocus(focusInfo);
 }
 
 function renderDropdown(type) {
-    const currencies = state.rates ? Object.keys(state.rates).sort() : [];
-    const q = state.searchQuery.toLowerCase();
-    const filtered = currencies.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
+    const filtered = getDropdownCurrencies();
     const current = type === 'from' ? state.fromCurrency : state.toCurrency;
+    const dropdownId = type === 'from' ? 'input-dropdown-search-from' : 'input-dropdown-search-to';
 
     return `<div class="absolute z-50 top-full mt-2 w-full bg-white/95 backdrop-blur-xl border border-sky-100 rounded-2xl shadow-2xl shadow-sky-200/30 overflow-hidden dropdown-enter">
         <div class="p-3 border-b border-sky-50">
-            <input type="text" placeholder="${t("searchPlaceholder")}" value="${state.searchQuery}" oninput="state.searchQuery=this.value;render()" class="w-full px-4 py-2.5 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100" />
+            <input id="${dropdownId}" type="text" placeholder="${t("searchPlaceholder")}" value="${state.searchQuery}" oninput="onDropdownSearchInput(this)" class="w-full px-4 py-2.5 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100" />
         </div>
         <div class="max-h-72 overflow-y-auto p-2 scrollbar-thin">
+            ${filtered.length === 0 ? `<div class="text-center py-6 text-slate-400 text-sm">${t("noResults")}</div>` : ''}
             ${filtered.map(code => `
                 <button onclick="event.stopPropagation();selectCurrency('${type}','${code}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${current === code ? 'bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200' : 'hover:bg-sky-50/50'}">
                     <span class="text-2xl">${getFlag(code)}</span>
                     <div class="flex-1 text-left">
                         <span class="font-bold text-slate-800">${code}</span>
                         <span class="text-slate-500 text-sm ml-2">${getName(code)}</span>
+                        ${state.favorites.includes(code) ? '<span class="text-amber-400 text-xs ml-1">★</span>' : ''}
                     </div>
                     <button onclick="event.stopPropagation();toggleFav('${code}')" class="text-xl transition-all duration-200 ${state.favorites.includes(code) ? 'text-amber-400 scale-110' : 'text-slate-300 hover:text-amber-300'}">★</button>
                 </button>
@@ -538,11 +584,71 @@ function renderDropdown(type) {
     </div>`;
 }
 
+// ===== ОБРАБОТЧИКИ ВВОДА (БЕЗ ПОТЕРИ ФОКУСА) =====
+function onAmountInput(el) {
+    state.amount = el.value;
+}
+
+function onListSearchInput(el) {
+    state.listSearchQuery = el.value;
+    updateListOnly();
+}
+
+function onDropdownSearchInput(el) {
+    state.searchQuery = el.value;
+    updateDropdownOnly();
+}
+
+function updateListOnly() {
+    const displayed = getDisplayCurrencies();
+    const listContainer = document.querySelector('.lg\\:col-span-2 .flex-1.overflow-y-auto');
+    if (listContainer) {
+        listContainer.innerHTML = displayed.length === 0
+            ? `<div class="text-center py-12 text-slate-400"><div class="text-4xl mb-2">🔍</div><div class="text-sm">${t("noResults")}</div></div>`
+            : displayed.map(code => `
+                <div class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md ${state.favorites.includes(code) ? 'bg-gradient-to-r from-amber-50/50 to-yellow-50/50 border-amber-200/60 hover:border-amber-300' : 'bg-white/50 border-sky-50 hover:border-sky-200 hover:bg-sky-50/30'}" onclick="selectFrom('${code}')">
+                    <span class="text-2xl">${getFlag(code)}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-800 text-sm">${code}</span>
+                            ${state.favorites.includes(code) ? '<span class="text-amber-400 text-xs">★</span>' : ''}
+                        </div>
+                        <div class="text-xs text-slate-500 truncate">${getName(code)}</div>
+                    </div>
+                    ${state.rates && state.rates[code] ? `<div class="text-right"><div class="text-xs font-semibold text-slate-600">${state.rates[code] < 1 ? state.rates[code].toFixed(6) : state.rates[code].toFixed(2)}</div><div class="text-[10px] text-slate-400">${t("perUnit")}</div></div>` : ''}
+                    <button onclick="event.stopPropagation();toggleFav('${code}')" class="text-lg transition-all duration-200 ${state.favorites.includes(code) ? 'text-amber-400 scale-110' : 'text-slate-300 hover:text-amber-300 hover:scale-110'}">★</button>
+                </div>
+            `).join('');
+    }
+}
+
+function updateDropdownOnly() {
+    const filtered = getDropdownCurrencies();
+    const dropdownContent = document.querySelector('.dropdown-enter .max-h-72');
+    if (dropdownContent) {
+        const type = document.querySelector('.dropdown-enter #input-dropdown-search-from') ? 'from' : 'to';
+        const current = type === 'from' ? state.fromCurrency : state.toCurrency;
+        dropdownContent.innerHTML = filtered.length === 0
+            ? `<div class="text-center py-6 text-slate-400 text-sm">${t("noResults")}</div>`
+            : filtered.map(code => `
+                <button onclick="event.stopPropagation();selectCurrency('${type}','${code}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${current === code ? 'bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200' : 'hover:bg-sky-50/50'}">
+                    <span class="text-2xl">${getFlag(code)}</span>
+                    <div class="flex-1 text-left">
+                        <span class="font-bold text-slate-800">${code}</span>
+                        <span class="text-slate-500 text-sm ml-2">${getName(code)}</span>
+                        ${state.favorites.includes(code) ? '<span class="text-amber-400 text-xs ml-1">★</span>' : ''}
+                    </div>
+                    <button onclick="event.stopPropagation();toggleFav('${code}')" class="text-xl transition-all duration-200 ${state.favorites.includes(code) ? 'text-amber-400 scale-110' : 'text-slate-300 hover:text-amber-300'}">★</button>
+                </button>
+            `).join('');
+    }
+}
+
 // ===== ДЕЙСТВИЯ =====
 function setLang(lang) { state.lang = lang; saveLang(); render(); }
 function setTab(tab) { state.activeTab = tab; render(); }
-function toggleFromDropdown() { state.showFromDropdown = !state.showFromDropdown; state.showToDropdown = false; render(); }
-function toggleToDropdown() { state.showToDropdown = !state.showToDropdown; state.showFromDropdown = false; render(); }
+function toggleFromDropdown() { state.showFromDropdown = !state.showFromDropdown; state.showToDropdown = false; state.searchQuery = ""; render(); }
+function toggleToDropdown() { state.showToDropdown = !state.showToDropdown; state.showFromDropdown = false; state.searchQuery = ""; render(); }
 function selectCurrency(type, code) {
     if (type === 'from') { state.fromCurrency = code; saveFrom(); state.showFromDropdown = false; }
     else { state.toCurrency = code; saveTo(); state.showToDropdown = false; }
@@ -551,12 +657,18 @@ function selectCurrency(type, code) {
 }
 function selectFrom(code) { state.fromCurrency = code; saveFrom(); render(); }
 
-// Закрытие дропдаунов по клику вне
 document.addEventListener("click", (e) => {
-    if (!e.target.closest('.relative')) {
-        if (state.showFromDropdown || state.showToDropdown) {
+    if (state.showFromDropdown || state.showToDropdown) {
+        const target = e.target;
+        const dropdowns = document.querySelectorAll('.dropdown-enter');
+        const buttons = document.querySelectorAll('[onclick*="toggleFromDropdown"], [onclick*="toggleToDropdown"]');
+        let inside = false;
+        dropdowns.forEach(d => { if (d.contains(target)) inside = true; });
+        buttons.forEach(b => { if (b.contains(target)) inside = true; });
+        if (!inside) {
             state.showFromDropdown = false;
             state.showToDropdown = false;
+            state.searchQuery = "";
             render();
         }
     }
