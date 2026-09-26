@@ -1,591 +1,3 @@
---- COPY-ME.html (原始)
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Конвертер валют | Currency Converter</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            margin: 0; padding: 0; min-height: 100vh;
-        }
-        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: #bae6fd; border-radius: 999px; }
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type="number"] { -moz-appearance: textfield; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        .dropdown-enter { animation: fadeIn 0.2s ease-out; }
-        .result-pop { animation: slideUp 0.3s ease-out; }
-    </style>
-</head>
-<body>
-<div id="app"></div>
-<script>
-const CURRENCY_NAMES = {
-    "USD": { "ru": "Доллар США", "en": "US Dollar" },
-    "EUR": { "ru": "Евро", "en": "Euro" },
-    "RUB": { "ru": "Российский рубль", "en": "Russian Ruble" },
-    "KZT": { "ru": "Казахстанский тенге", "en": "Kazakhstani Tenge" },
-    "GBP": { "ru": "Фунт стерлингов", "en": "British Pound" },
-    "JPY": { "ru": "Японская иена", "en": "Japanese Yen" },
-    "CNY": { "ru": "Китайский юань", "en": "Chinese Yuan" },
-    "TRY": { "ru": "Турецкая лира", "en": "Turkish Lira" },
-    "BYN": { "ru": "Белорусский рубль", "en": "Belarusian Ruble" },
-    "UAH": { "ru": "Украинская гривна", "en": "Ukrainian Hryvnia" },
-    "CHF": { "ru": "Швейцарский франк", "en": "Swiss Franc" },
-    "CAD": { "ru": "Канадский доллар", "en": "Canadian Dollar" },
-    "AUD": { "ru": "Австралийский доллар", "en": "Australian Dollar" },
-    "INR": { "ru": "Индийская рупия", "en": "Indian Rupee" },
-    "AED": { "ru": "Дирхам ОАЭ", "en": "UAE Dirham" },
-    "SAR": { "ru": "Саудовский риял", "en": "Saudi Riyal" },
-    "PLN": { "ru": "Польский злотый", "en": "Polish Zloty" },
-    "CZK": { "ru": "Чешская крона", "en": "Czech Koruna" },
-    "SEK": { "ru": "Шведская крона", "en": "Swedish Krona" },
-    "NOK": { "ru": "Норвежская крона", "en": "Norwegian Krone" },
-    "KRW": { "ru": "Южнокорейская вона", "en": "South Korean Won" },
-    "SGD": { "ru": "Сингапурский доллар", "en": "Singapore Dollar" },
-    "HKD": { "ru": "Гонконгский доллар", "en": "Hong Kong Dollar" },
-    "NZD": { "ru": "Новозеландский доллар", "en": "New Zealand Dollar" },
-    "ZAR": { "ru": "Южноафриканский рэнд", "en": "South African Rand" },
-    "BRL": { "ru": "Бразильский реал", "en": "Brazilian Real" },
-    "MXN": { "ru": "Мексиканское песо", "en": "Mexican Peso" },
-    "THB": { "ru": "Тайский бат", "en": "Thai Baht" },
-    "IDR": { "ru": "Индонезийская рупия", "en": "Indonesian Rupiah" },
-    "MYR": { "ru": "Малайзийский ринггит", "en": "Malaysian Ringgit" },
-    "PHP": { "ru": "Филиппинское песо", "en": "Philippine Peso" },
-    "VND": { "ru": "Вьетнамский донг", "en": "Vietnamese Dong" },
-    "EGP": { "ru": "Египетский фунт", "en": "Egyptian Pound" },
-    "ILS": { "ru": "Израильский шекель", "en": "Israeli Shekel" },
-    "QAR": { "ru": "Катарский риал", "en": "Qatari Riyal" },
-    "KWD": { "ru": "Кувейтский динар", "en": "Kuwaiti Dinar" },
-    "MAD": { "ru": "Марокканский дирхам", "en": "Moroccan Dirham" },
-    "DKK": { "ru": "Датская крона", "en": "Danish Krone" },
-    "HUF": { "ru": "Венгерский форинт", "en": "Hungarian Forint" },
-    "RON": { "ru": "Румынский лей", "en": "Romanian Leu" },
-    "BGN": { "ru": "Болгарский лев", "en": "Bulgarian Lev" },
-    "ARS": { "ru": "Аргентинское песо", "en": "Argentine Peso" },
-    "CLP": { "ru": "Чилийское песо", "en": "Chilean Peso" },
-    "COP": { "ru": "Колумбийское песо", "en": "Colombian Peso" },
-    "PEN": { "ru": "Перуанский соль", "en": "Peruvian Sol" },
-    "PKR": { "ru": "Пакистанская рупия", "en": "Pakistani Rupee" },
-    "BDT": { "ru": "Бангладешская така", "en": "Bangladeshi Taka" },
-    "LKR": { "ru": "Шри-ланкийская рупия", "en": "Sri Lankan Rupee" },
-    "MNT": { "ru": "Монгольский тугрик", "en": "Mongolian Tugrik" },
-    "GEL": { "ru": "Грузинский лари", "en": "Georgian Lari" },
-    "AMD": { "ru": "Армянский драм", "en": "Armenian Dram" },
-    "AZN": { "ru": "Азербайджанский манат", "en": "Azerbaijani Manat" },
-    "UZS": { "ru": "Узбекский сум", "en": "Uzbekistani Som" },
-    "TJS": { "ru": "Таджикский сомони", "en": "Tajikistani Somoni" },
-    "KGS": { "ru": "Киргизский сом", "en": "Kyrgyzstani Som" },
-    "MDL": { "ru": "Молдавский лей", "en": "Moldovan Leu" },
-    "RSD": { "ru": "Сербский динар", "en": "Serbian Dinar" },
-    "ISK": { "ru": "Исландская крона", "en": "Icelandic Krona" },
-    "ALL": { "ru": "Албанский лек", "en": "Albanian Lek" },
-    "MKD": { "ru": "Македонский денар", "en": "Macedonian Denar" },
-    "JOD": { "ru": "Иорданский динар", "en": "Jordanian Dinar" },
-    "LBP": { "ru": "Ливанский фунт", "en": "Lebanese Pound" },
-    "IQD": { "ru": "Иракский динар", "en": "Iraqi Dinar" },
-    "OMR": { "ru": "Оманский риал", "en": "Omani Rial" },
-    "BHD": { "ru": "Бахрейнский динар", "en": "Bahraini Dinar" },
-    "NGN": { "ru": "Нигерийская найра", "en": "Nigerian Naira" },
-    "KES": { "ru": "Кенийский шиллинг", "en": "Kenyan Shilling" },
-    "DZD": { "ru": "Алжирский динар", "en": "Algerian Dinar" },
-    "TND": { "ru": "Тунисский динар", "en": "Tunisian Dinar" },
-    "AFN": { "ru": "Афганский афгани", "en": "Afghan Afghani" },
-    "KHR": { "ru": "Камбоджийский риель", "en": "Cambodian Riel" },
-    "LAK": { "ru": "Лаосский кип", "en": "Lao Kip" },
-    "MMK": { "ru": "Мьянманский кьят", "en": "Myanmar Kyat" },
-    "NPR": { "ru": "Непальская рупия", "en": "Nepalese Rupee" },
-    "YER": { "ru": "Йеменский риал", "en": "Yemeni Rial" },
-    "SYP": { "ru": "Сирийский фунт", "en": "Syrian Pound" },
-    "LYD": { "ru": "Ливийский динар", "en": "Libyan Dinar" },
-    "ETB": { "ru": "Эфиопский быр", "en": "Ethiopian Birr" },
-    "XOF": { "ru": "Западноафриканский франк", "en": "West African CFA Franc" },
-    "XAF": { "ru": "Центральноафриканский франк", "en": "Central African CFA Franc" },
-    "VES": { "ru": "Венесуэльский боливар", "en": "Venezuelan Bolivar" },
-    "CUP": { "ru": "Кубинское песо", "en": "Cuban Peso" },
-    "DOP": { "ru": "Доминиканское песо", "en": "Dominican Peso" },
-    "JMD": { "ru": "Ямайский доллар", "en": "Jamaican Dollar" },
-    "TTD": { "ru": "Доллар Тринидада и Тобаго", "en": "Trinidad and Tobago Dollar" },
-    "UYU": { "ru": "Уругвайское песо", "en": "Uruguayan Peso" },
-    "PYG": { "ru": "Парагвайский гуарани", "en": "Paraguayan Guarani" },
-    "GTQ": { "ru": "Гватемальский кетсаль", "en": "Guatemalan Quetzal" },
-    "HNL": { "ru": "Гондурасская лемпира", "en": "Honduran Lempira" },
-    "NIO": { "ru": "Никарагуанская кордоба", "en": "Nicaraguan Cordoba" },
-    "PAB": { "ru": "Панамский бальбоа", "en": "Panamanian Balboa" },
-    "FJD": { "ru": "Фиджийский доллар", "en": "Fijian Dollar" },
-    "PGK": { "ru": "Папуа-Новогвинейская кина", "en": "Papua New Guinean Kina" },
-    "TOP": { "ru": "Тонганская паанга", "en": "Tongan Paanga" },
-    "WST": { "ru": "Самоанская тала", "en": "Samoan Tala" },
-    "MOP": { "ru": "Патака Макао", "en": "Macanese Pataca" },
-    "BAM": { "ru": "Боснийская марка", "en": "Bosnia-Herzegovina Mark" },
-    "HRK": { "ru": "Хорватская куна", "en": "Croatian Kuna" },
-    "GHS": { "ru": "Ганский седи", "en": "Ghanaian Cedi" },
-    "MUR": { "ru": "Маврикийская рупия", "en": "Mauritian Rupee" },
-    "SCR": { "ru": "Сейшельская рупия", "en": "Seychellois Rupee" },
-    "BWP": { "ru": "Ботсванская пула", "en": "Botswana Pula" },
-    "NAD": { "ru": "Намибийский доллар", "en": "Namibian Dollar" },
-    "MVR": { "ru": "Мальдивская руфия", "en": "Maldivian Rufiyaa" },
-    "AWG": { "ru": "Арубанский флорин", "en": "Aruban Florin" },
-    "BBD": { "ru": "Барбадосский доллар", "en": "Barbadian Dollar" },
-    "BMD": { "ru": "Бермудский доллар", "en": "Bermudian Dollar" },
-    "BSD": { "ru": "Багамский доллар", "en": "Bahamian Dollar" },
-    "SRD": { "ru": "Суринамский доллар", "en": "Surinamese Dollar" },
-    "ANG": { "ru": "Нидерландский антильский гульден", "en": "Netherlands Antillean Guilder" },
-    "BZD": { "ru": "Белизский доллар", "en": "Belize Dollar" },
-    "XCD": { "ru": "Восточно-карибский доллар", "en": "East Caribbean Dollar" },
-    "AOA": { "ru": "Ангольская кванза", "en": "Angolan Kwanza" },
-    "BIF": { "ru": "Бурундийский франк", "en": "Burundian Franc" },
-    "CDF": { "ru": "Конголезский франк", "en": "Congolese Franc" },
-    "CVE": { "ru": "Эскудо Кабо-Верде", "en": "Cape Verdean Escudo" },
-    "DJF": { "ru": "Джибутийский франк", "en": "Djiboutian Franc" },
-    "ERN": { "ru": "Эритрейская накфа", "en": "Eritrean Nakfa" },
-    "GMD": { "ru": "Гамбийский даласи", "en": "Gambian Dalasi" },
-    "GNF": { "ru": "Гвинейский франк", "en": "Guinean Franc" },
-    "HTG": { "ru": "Гаитянский гурд", "en": "Haitian Gourde" },
-    "KMF": { "ru": "Коморский франк", "en": "Comorian Franc" },
-    "LRD": { "ru": "Либерийский доллар", "en": "Liberian Dollar" },
-    "LSL": { "ru": "Лоти Лесото", "en": "Lesotho Loti" },
-    "MGA": { "ru": "Малагасийский ариари", "en": "Malagasy Ariary" },
-    "MWK": { "ru": "Малавийская квача", "en": "Malawian Kwacha" },
-    "MZN": { "ru": "Мозамбикский метикал", "en": "Mozambican Metical" },
-    "RWF": { "ru": "Руандийский франк", "en": "Rwandan Franc" },
-    "SLL": { "ru": "Сьерра-леонский леоне", "en": "Sierra Leonean Leone" },
-    "SOS": { "ru": "Сомалийский шиллинг", "en": "Somali Shilling" },
-    "SSP": { "ru": "Южносуданский фунт", "en": "South Sudanese Pound" },
-    "STN": { "ru": "Добра Сан-Томе", "en": "Sao Tome Dobra" },
-    "SZL": { "ru": "Свазилендский лилангени", "en": "Swazi Lilangeni" },
-    "UGX": { "ru": "Угандийский шиллинг", "en": "Ugandan Shilling" },
-    "TZS": { "ru": "Танзанийский шиллинг", "en": "Tanzanian Shilling" },
-    "TMT": { "ru": "Туркменский манат", "en": "Turkmenistani Manat" },
-    "ZMW": { "ru": "Замбийская квача", "en": "Zambian Kwacha" },
-    "ZWL": { "ru": "Зимбабвийский доллар", "en": "Zimbabwean Dollar" },
-    "SBD": { "ru": "Доллар Соломоновых Островов", "en": "Solomon Islands Dollar" },
-    "VUV": { "ru": "Вануатский вату", "en": "Vanuatu Vatu" },
-};
-
-const CURRENCY_FLAGS = {
-    "USD":"🇺🇸","EUR":"🇪🇺","RUB":"🇷🇺","KZT":"🇰🇿","GBP":"🇬🇧","JPY":"🇯🇵","CNY":"🇨🇳","TRY":"🇹🇷","BYN":"🇧🇾","UAH":"🇺🇦",
-    "CHF":"🇨🇭","CAD":"🇨🇦","AUD":"🇦🇺","INR":"🇮🇳","AED":"🇦🇪","SAR":"🇸🇦","PLN":"🇵🇱","CZK":"🇨🇿","SEK":"🇸🇪","NOK":"🇳🇴",
-    "KRW":"🇰🇷","SGD":"🇸🇬","HKD":"🇭🇰","NZD":"🇳🇿","ZAR":"🇿🇦","BRL":"🇧🇷","MXN":"🇲🇽","THB":"🇹🇭","IDR":"🇮🇩","MYR":"🇲🇾",
-    "PHP":"🇵🇭","VND":"🇻🇳","EGP":"🇪🇬","ILS":"🇮🇱","QAR":"🇶🇦","KWD":"🇰🇼","MAD":"🇲🇦","DKK":"🇩🇰","HUF":"🇭🇺","RON":"🇷🇴",
-    "BGN":"🇧🇬","ARS":"🇦🇷","CLP":"🇨🇱","COP":"🇨🇴","PEN":"🇵🇪","PKR":"🇵🇰","BDT":"🇧🇩","LKR":"🇱🇰","NPR":"🇳🇵","MNT":"🇲🇳",
-    "GEL":"🇬🇪","AMD":"🇦🇲","AZN":"🇦🇿","UZS":"🇺🇿","TJS":"🇹🇯","KGS":"🇰🇬","TMT":"🇹🇲","MDL":"🇲🇩","RSD":"🇷🇸","HRK":"🇭🇷",
-    "ISK":"🇮🇸","ALL":"🇦🇱","MKD":"🇲🇰","BAM":"🇧🇦","JOD":"🇯🇴","LBP":"🇱🇧","IQD":"🇮🇶","OMR":"🇴🇲","BHD":"🇧🇭","MVR":"🇲🇻",
-    "NAD":"🇳🇦","BWP":"🇧🇼","MUR":"🇲🇺","SCR":"🇸🇨","DZD":"🇩🇿","TND":"🇹🇳","NGN":"🇳🇬","GHS":"🇬🇭","KES":"🇰🇪","UGX":"🇺🇬",
-    "TZS":"🇹🇿","RWF":"🇷🇼","ETB":"🇪🇹","XOF":"🇸🇳","XAF":"🇨🇲","ANG":"🇨🇼","AWG":"🇦🇼","BBD":"🇧🇧","BZD":"🇧🇿","BMD":"🇧🇲",
-    "BSD":"🇧🇸","CUP":"🇨🇺","DOP":"🇩🇴","GTQ":"🇬🇹","HNL":"🇭🇳","JMD":"🇯🇲","NIO":"🇳🇮","PAB":"🇵🇦","PYG":"🇵🇾","SRD":"🇸🇷",
-    "TTD":"🇹🇹","UYU":"🇺🇾","VES":"🇻🇪","FJD":"🇫🇯","PGK":"🇵🇬","SBD":"🇸🇧","TOP":"🇹🇴","VUV":"🇻🇺","WST":"🇼🇸","XCD":"🇦🇬",
-    "AFN":"🇦🇫","AOA":"🇦🇴","BIF":"🇧🇮","CDF":"🇨🇩","CVE":"🇨🇻","DJF":"🇩🇯","ERN":"🇪🇷","GMD":"🇬🇲","GNF":"🇬🇳","HTG":"🇭🇹",
-    "KHR":"🇰🇭","KMF":"🇰🇲","LAK":"🇱🇦","LRD":"🇱🇷","LSL":"🇱🇸","LYD":"🇱🇾","MGA":"🇲🇬","MMK":"🇲🇲","MOP":"🇲🇴","MWK":"🇲🇼",
-    "MZN":"🇲🇿","SLL":"🇸🇱","SOS":"🇸🇴","SSP":"🇸🇸","STN":"🇸🇹","SZL":"🇸🇿","YER":"🇾🇪","ZMW":"🇿🇲","ZWL":"🇿🇼",
-};
-
-const POPULAR = ["USD","EUR","RUB","GBP","JPY","CNY","KZT","TRY","UAH","BYN","CHF","CAD","AUD","INR","AED","KRW"];
-
-const T = {
-    ru: {
-        title:"Конвертер валют", subtitle:"Актуальные курсы в реальном времени",
-        converterTitle:"Конвертация", amount:"Сумма", amountPlaceholder:"Введите сумму",
-        from:"Из валюты", to:"В валюту", convert:"Конвертировать",
-        listTitle:"Все валюты", searchPlaceholder:"Поиск валюты...",
-        hint:"Используй поиск, звёздочки и кнопку ⇄ для удобной работы.",
-        smallHint:"Избранные валюты сохраняются в браузере.",
-        result:"Результат", error:"Ошибка", loading:"Загрузка курсов...",
-        loadError:"Не удалось загрузить курсы валют. Проверь интернет.",
-        inputError:"Ошибка ввода. Попробуй ещё раз.",
-        invalidCurrency:"Выбрана неправильная валюта.",
-        popular:"Популярные", all:"Все", favorites:"Избранные",
-        rate:"Курс", perUnit:"за 1 USD", developer:"Developer Broniks",
-        lastUpdated:"Обновлено", today:"сегодня", swap:"Поменять местами",
-        noResults:"Ничего не найдено",
-    },
-    en: {
-        title:"Currency Converter", subtitle:"Real-time exchange rates",
-        converterTitle:"Conversion", amount:"Amount", amountPlaceholder:"Enter amount",
-        from:"From currency", to:"To currency", convert:"Convert",
-        listTitle:"All Currencies", searchPlaceholder:"Search currency...",
-        hint:"Use search, stars and ⇄ button for convenience.",
-        smallHint:"Favorite currencies are saved in your browser.",
-        result:"Result", error:"Error", loading:"Loading rates...",
-        loadError:"Failed to load exchange rates. Check your internet.",
-        inputError:"Input error. Try again.",
-        invalidCurrency:"Invalid currency selected.",
-        popular:"Popular", all:"All", favorites:"Favorites",
-        rate:"Rate", perUnit:"per 1 USD", developer:"Developer Broniks",
-        lastUpdated:"Updated", today:"today", swap:"Swap",
-        noResults:"Nothing found",
-    }
-};
-
-let state = {
-    lang: localStorage.getItem("lang") || "ru",
-    rates: null, loading: true, error: null,
-    amount: "100",
-    fromCurrency: localStorage.getItem("fromCurrency") || "USD",
-    toCurrency: localStorage.getItem("toCurrency") || "RUB",
-    result: null,
-    searchQuery: "",
-    listSearchQuery: "",
-    favorites: JSON.parse(localStorage.getItem("favorites") || '["USD","EUR","RUB"]'),
-    activeTab: "popular",
-    openDropdown: null,
-    animateResult: false,
-};
-
-function t(k){return T[state.lang][k]||k}
-function getName(c){return CURRENCY_NAMES[c]?.[state.lang]||c}
-function getFlag(c){return CURRENCY_FLAGS[c]||"💱"}
-function saveFav(){localStorage.setItem("favorites",JSON.stringify(state.favorites))}
-function saveFrom(){localStorage.setItem("fromCurrency",state.fromCurrency)}
-function saveTo(){localStorage.setItem("toCurrency",state.toCurrency)}
-function saveLang(){localStorage.setItem("lang",state.lang)}
-
-function saveFocus(){
-    const el=document.activeElement;
-    if(!el||el===document.body)return null;
-    const i={id:el.id};
-    if(el.selectionStart!==undefined){i.ss=el.selectionStart;i.se=el.selectionEnd}
-    return i;
-}
-function restoreFocus(i){
-    if(!i||!i.id)return;
-    const el=document.getElementById(i.id);
-    if(!el)return;
-    el.focus();
-    if(i.ss!==undefined&&el.setSelectionRange){try{el.setSelectionRange(i.ss,i.se)}catch(e){}}
-}
-
-async function fetchRates(){
-    state.loading=true; render();
-    try{
-        const r=await fetch("https://api.exchangerate-api.com/v4/latest/USD");
-        if(!r.ok)throw new Error();
-        const d=await r.json();
-        state.rates=d.rates; state.error=null;
-    }catch{state.error=t("loadError")}
-    finally{state.loading=false;render()}
-}
-
-function doConvert(){
-    if(!state.rates)return;
-    const n=parseFloat(state.amount);
-    if(isNaN(n)||n<=0){state.error=t("inputError");state.result=null;render();return}
-    if(!state.rates[state.fromCurrency]||!state.rates[state.toCurrency]){state.error=t("invalidCurrency");state.result=null;render();return}
-    const v=(n/state.rates[state.fromCurrency])*state.rates[state.toCurrency];
-    state.result=`${n.toLocaleString()} ${state.fromCurrency} = ${v.toLocaleString(undefined,{maximumFractionDigits:4})} ${state.toCurrency}`;
-    state.error=null; state.animateResult=true; render();
-    setTimeout(()=>{state.animateResult=false;render()},600);
-}
-
-function swap(){
-    [state.fromCurrency,state.toCurrency]=[state.toCurrency,state.fromCurrency];
-    saveFrom();saveTo();
-    if(state.result)doConvert();else render();
-}
-
-function toggleFav(code){
-    if(state.favorites.includes(code))state.favorites=state.favorites.filter(c=>c!==code);
-    else state.favorites.push(code);
-    saveFav();
-    const f=saveFocus();render();restoreFocus(f);
-}
-
-function sortFav(arr){
-    return[...arr].sort((a,b)=>{
-        const af=state.favorites.includes(a)?0:1;
-        const bf=state.favorites.includes(b)?0:1;
-        if(af!==bf)return af-bf;
-        return a.localeCompare(b);
-    });
-}
-
-function getList(){
-    if(!state.rates)return[];
-    const all=Object.keys(state.rates);
-    let f;
-    if(state.activeTab==="popular")f=all.filter(c=>POPULAR.includes(c));
-    else if(state.active==="favorites")f=all.filter(c=>state.favorites.includes(c));
-    else{const q=state.listSearchQuery.toLowerCase();f=all.filter(c=>c.toLowerCase().includes(q)||getName(c).toLowerCase().includes(q))}
-    return sortFav(f);
-}
-
-function getDropList(){
-    if(!state.rates)return[];
-    const all=Object.keys(state.rates);
-    const q=state.searchQuery.toLowerCase();
-    return sortFav(all.filter(c=>c.toLowerCase().includes(q)||getName(c).toLowerCase().includes(q)));
-}
-
-function render(){
-    const fi=saveFocus();
-    const list=getList();
-
-    document.getElementById("app").innerHTML=`
-    <div class="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-sky-200/40 to-transparent rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-        <div class="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-indigo-200/40 to-transparent rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
-        <div class="relative z-10 max-w-6xl mx-auto px-4 py-8 min-h-screen flex flex-col">
-
-            <header class="flex items-center justify-between mb-8 flex-wrap gap-4">
-                <div>
-                    <h1 class="text-3xl md:text-4xl font-black bg-gradient-to-r from-sky-700 to-blue-600 bg-clip-text text-transparent">${t("title")}</h1>
-                    <p class="text-slate-500 mt-1 text-sm md:text-base">${t("subtitle")}</p>
-                </div>
-                <div class="flex items-center gap-2 bg-white/70 backdrop-blur-sm rounded-full p-1.5 shadow-lg border border-white/80">
-                    <button onclick="setLang('ru')" class="px-4 py-2 rounded-full text-sm font-bold transition-all ${state.lang==='ru'?'bg-gradient-to-r from-sky-500 to-blue-500 text-white shadow-md':'text-slate-500 hover:text-sky-600'}">RU</button>
-                    <button onclick="setLang('en')" class="px-4 py-2 rounded-full text-sm font-bold transition-all ${state.lang==='en'?'bg-gradient-to-r from-sky-500 to-blue-500 text-white shadow-md':'text-slate-500 hover:text-sky-600'}">EN</button>
-                </div>
-            </header>
-
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 flex-1">
-                <div class="lg:col-span-3">
-                    <div class="bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl p-6 md:p-8">
-                        <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <span class="w-8 h-8 bg-gradient-to-br from-sky-400 to-blue-500 rounded-lg flex items-center justify-center text-white text-sm">💱</span>
-                            ${t("converterTitle")}
-                        </h2>
-
-                        <div class="mb-6">
-                            <label class="block text-sm font-semibold text-slate-600 mb-2 ml-1">${t("amount")}</label>
-                            <div class="relative">
-                                <input id="input-amount" type="number" value="${state.amount}" oninput="state.amount=this.value" placeholder="${t("amountPlaceholder")}" class="w-full px-5 py-4 bg-white/80 border-2 border-sky-100 rounded-2xl text-xl font-bold text-slate-800 focus:outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 transition-all placeholder:text-slate-300"/>
-                                <span class="absolute right-5 top-1/2 -translate-y-1/2 text-2xl">${getFlag(state.fromCurrency)}</span>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-end mb-6">
-                            <div class="relative">
-                                <label class="block text-sm font-semibold text-slate-600 mb-2 ml-1">${t("from")}</label>
-                                <button onclick="toggleDrop('from')" class="w-full flex items-center gap-3 px-5 py-4 bg-white/80 border-2 ${state.openDropdown==='from'?'border-sky-400 ring-4 ring-sky-100':'border-sky-100'} rounded-2xl hover:border-sky-300 hover:shadow-lg transition-all">
-                                    <span class="text-3xl">${getFlag(state.fromCurrency)}</span>
-                                    <div class="flex-1 text-left">
-                                        <div class="font-bold text-slate-800 text-lg">${state.fromCurrency}</div>
-                                        <div class="text-sm text-slate-500 truncate">${getName(state.fromCurrency)}</div>
-                                    </div>
-                                    <svg class="w-5 h-5 text-slate-400 transition-transform ${state.openDropdown==='from'?'rotate-180':''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
-                                ${state.openDropdown==='from'?renderDrop('from'):''}
-                            </div>
-
-                            <button onclick="swap()" class="w-14 h-14 mx-auto bg-gradient-to-br from-sky-400 to-blue-600 rounded-2xl text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all" title="${t("swap")}">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </button>
-
-                            <div class="relative">
-                                <label class="block text-sm font-semibold text-slate-600 mb-2 ml-1">${t("to")}</label>
-                                <button onclick="toggleDrop('to')" class="w-full flex items-center gap-3 px-5 py-4 bg-white/80 border-2 ${state.openDropdown==='to'?'border-sky-400 ring-4 ring-sky-100':'border-sky-100'} rounded-2xl hover:border-sky-300 hover:shadow-lg transition-all">
-                                    <span class="text-3xl">${getFlag(state.toCurrency)}</span>
-                                    <div class="flex-1 text-left">
-                                        <div class="font-bold text-slate-800 text-lg">${state.toCurrency}</div>
-                                        <div class="text-sm text-slate-500 truncate">${getName(state.toCurrency)}</div>
-                                    </div>
-                                    <svg class="w-5 h-5 text-slate-400 transition-transform ${state.openDropdown==='to'?'rotate-180':''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
-                                ${state.openDropdown==='to'?renderDrop('to'):''}
-                            </div>
-                        </div>
-
-                        <button onclick="doConvert()" class="w-full py-4 bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all">
-                            ${t("convert")}
-                        </button>
-
-                        ${state.result?`<div class="mt-6 p-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl text-center ${state.animateResult?'result-pop':''}">
-                            <div class="text-sm font-medium text-emerald-600 mb-1">${t("result")}</div>
-                            <div class="text-xl font-black text-emerald-800">${state.result}</div>
-                            ${state.rates?`<div class="text-sm text-emerald-600/70 mt-2">${t("rate")}: 1 ${state.fromCurrency} = ${(state.rates[state.toCurrency]/state.rates[state.fromCurrency]).toFixed(4)} ${state.toCurrency}</div>`:''}
-                        </div>`:''}
-
-                        ${state.error?`<div class="mt-6 p-5 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-2xl text-center">
-                            <div class="text-sm font-medium text-red-500 mb-1">${t("error")}</div>
-                            <div class="text-red-700 font-bold">${state.error}</div>
-                        </div>`:''}
-
-                        ${state.loading?`<div class="mt-6 p-5 bg-sky-50/50 border border-sky-100 rounded-2xl text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <div class="w-5 h-5 border-2 border-sky-300 border-t-sky-600 rounded-full animate-spin"></div>
-                                <span class="text-sky-600 font-medium">${t("loading")}</span>
-                            </div>
-                        </div>`:''}
-                    </div>
-                </div>
-
-                <div class="lg:col-span-2">
-                    <div class="bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl p-6 h-full flex flex-col">
-                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span class="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg flex items-center justify-center text-white text-sm">📋</span>
-                            ${t("listTitle")}
-                        </h2>
-
-                        <div class="flex gap-1 bg-sky-50/50 rounded-xl p-1 mb-4">
-                            <button onclick="setTab('popular')" class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${state.activeTab==='popular'?'bg-white shadow-md text-sky-700':'text-slate-500 hover:text-sky-600'}">${t("popular")}</button>
-                            <button onclick="setTab('favorites')" class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${state.activeTab==='favorites'?'bg-white shadow-md text-amber-600':'text-slate-500 hover:text-amber-500'}">★ ${t("favorites")}</button>
-                            <button onclick="setTab('all')" class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${state.activeTab==='all'?'bg-white shadow-md text-slate-700':'text-slate-500 hover:text-slate-700'}">${t("all")}</button>
-                        </div>
-
-                        ${state.activeTab==='all'?`<div class="mb-4 relative">
-                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input id="input-list-search" type="text" placeholder="${t("searchPlaceholder")}" value="${state.listSearchQuery}" oninput="onListSearch(this)" class="w-full pl-10 pr-4 py-3 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 transition-all"/>
-                        </div>`:''}
-
-                        <div id="currency-list" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[500px] scrollbar-thin">
-                            ${list.length===0?`<div class="text-center py-12 text-slate-400"><div class="text-4xl mb-2">🔍</div><div class="text-sm">${t("noResults")}</div></div>`:''}
-                            ${list.map(c=>{
-                                const fav=state.favorites.includes(c);
-                                return `<div class="flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md ${fav?'bg-gradient-to-r from-amber-50/50 to-yellow-50/50 border-amber-200/60 hover:border-amber-300':'bg-white/50 border-sky-50 hover:border-sky-200 hover:bg-sky-50/30'}" onclick="pickFromList('${c}')">
-                                    <span class="text-2xl">${getFlag(c)}</span>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-2">
-                                            <span class="font-bold text-slate-800 text-sm">${c}</span>
-                                            ${fav?'<span class="text-amber-400 text-xs">★</span>':''}
-                                        </div>
-                                        <div class="text-xs text-slate-500 truncate">${getName(c)}</div>
-                                    </div>
-                                    ${state.rates&&state.rates[c]?`<div class="text-right hidden sm:block"><div class="text-xs font-semibold text-slate-600">${state.rates[c]<1?state.rates[c].toFixed(6):state.rates[c].toFixed(2)}</div><div class="text-[10px] text-slate-400">${t("perUnit")}</div></div>`:''}
-                                    <button onclick="event.stopPropagation();toggleFav('${c}')" class="text-lg transition-all ${fav?'text-amber-400 scale-110':'text-slate-300 hover:text-amber-300 hover:scale-110'}">★</button>
-                                </div>`;
-                            }).join('')}
-                        </div>
-
-                        <div class="mt-4 pt-4 border-t border-sky-100/50">
-                            <p class="text-xs text-slate-400 text-center">${t("hint")}</p>
-                            <p class="text-xs text-slate-400/70 text-center mt-1">${t("smallHint")}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <footer class="mt-8 text-center">
-                <div class="inline-flex items-center gap-2 px-6 py-3 bg-white/50 backdrop-blur-sm rounded-full border border-white/60 shadow-sm">
-                    <span class="text-sm font-bold text-slate-500">${t("developer")}</span>
-                    <span class="text-slate-300">•</span>
-                    <span class="text-sm text-slate-400">${t("lastUpdated")}: ${t("today")}</span>
-                </div>
-            </footer>
-        </div>
-    </div>`;
-    restoreFocus(fi);
-}
-
-function renderDrop(type){
-    const list=getDropList();
-    const cur=type==='from'?state.fromCurrency:state.toCurrency;
-    const sid=type==='from'?'input-drop-from':'input-drop-to';
-    return `<div class="absolute z-50 top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl border border-sky-100 rounded-2xl shadow-2xl overflow-hidden dropdown-enter">
-        <div class="p-3 border-b border-sky-50">
-            <input id="${sid}" type="text" placeholder="${t("searchPlaceholder")}" value="${state.searchQuery}" oninput="onDropSearch(this)" class="w-full px-4 py-2.5 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"/>
-        </div>
-        <div id="drop-list-${type}" class="max-h-72 overflow-y-auto p-2 scrollbar-thin">
-            ${list.length===0?`<div class="text-center py-6 text-slate-400 text-sm">${t("noResults")}</div>`:''}
-            ${list.map(c=>`
-                <button onclick="pickDrop('${type}','${c}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${cur===c?'bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200':'hover:bg-sky-50/50'}">
-                    <span class="text-2xl">${getFlag(c)}</span>
-                    <div class="flex-1 text-left">
-                        <span class="font-bold text-slate-800">${c}</span>
-                        <span class="text-slate-500 text-sm ml-2">${getName(c)}</span>
-                        ${state.favorites.includes(c)?'<span class="text-amber-400 text-xs ml-1">★</span>':''}
-                    </div>
-                    <button onclick="event.stopPropagation();toggleFav('${c}')" class="text-xl transition-all ${state.favorites.includes(c)?'text-amber-400 scale-110':'text-slate-300 hover:text-amber-300'}">★</button>
-                </button>
-            `).join('')}
-        </div>
-    </div>`;
-}
-
-function onListSearch(el){state.listSearchQuery=el.value;updateList()}
-function onDropSearch(el){state.searchQuery=el.value;updateDrop()}
-
-function updateList(){
-    const list=getList();
-    const c=document.getElementById('currency-list');
-    if(!c)return;
-    c.innerHTML=list.length===0
-        ?`<div class="text-center py-12 text-slate-400"><div class="text-4xl mb-2">🔍</div><div class="text-sm">${t("noResults")}</div></div>`
-        :list.map(c=>{
-            const fav=state.favorites.includes(c);
-            return `<div class="flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md ${fav?'bg-gradient-to-r from-amber-50/50 to-yellow-50/50 border-amber-200/60 hover:border-amber-300':'bg-white/50 border-sky-50 hover:border-sky-200 hover:bg-sky-50/30'}" onclick="pickFromList('${c}')">
-                <span class="text-2xl">${getFlag(c)}</span>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2"><span class="font-bold text-slate-800 text-sm">${c}</span>${fav?'<span class="text-amber-400 text-xs">★</span>':''}</div>
-                    <div class="text-xs text-slate-500 truncate">${getName(c)}</div>
-                </div>
-                ${state.rates&&state.rates[c]?`<div class="text-right hidden sm:block"><div class="text-xs font-semibold text-slate-600">${state.rates[c]<1?state.rates[c].toFixed(6):state.rates[c].toFixed(2)}</div><div class="text-[10px] text-slate-400">${t("perUnit")}</div></div>`:''}
-                <button onclick="event.stopPropagation();toggleFav('${c}')" class="text-lg transition-all ${fav?'text-amber-400 scale-110':'text-slate-300 hover:text-amber-300 hover:scale-110'}">★</button>
-            </div>`;
-        }).join('');
-}
-
-function updateDrop(){
-    const list=getDropList();
-    const type=state.openDropdown;
-    if(!type)return;
-    const cur=type==='from'?state.fromCurrency:state.toCurrency;
-    const c=document.getElementById('drop-list-'+type);
-    if(!c)return;
-    c.innerHTML=list.length===0
-        ?`<div class="text-center py-6 text-slate-400 text-sm">${t("noResults")}</div>`
-        :list.map(code=>`
-            <button onclick="pickDrop('${type}','${code}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${cur===code?'bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200':'hover:bg-sky-50/50'}">
-                <span class="text-2xl">${getFlag(code)}</span>
-                <div class="flex-1 text-left">
-                    <span class="font-bold text-slate-800">${code}</span>
-                    <span class="text-slate-500 text-sm ml-2">${getName(code)}</span>
-                    ${state.favorites.includes(code)?'<span class="text-amber-400 text-xs ml-1">★</span>':''}
-                </div>
-                <button onclick="event.stopPropagation();toggleFav('${code}')" class="text-xl transition-all ${state.favorites.includes(code)?'text-amber-400 scale-110':'text-slate-300 hover:text-amber-300'}">★</button>
-            </button>
-        `).join('');
-}
-
-function setLang(l){state.lang=l;saveLang();render()}
-function setTab(t){state.activeTab=t;render()}
-function toggleDrop(type){
-    state.openDropdown=state.openDropdown===type?null:type;
-    state.searchQuery="";
-    render();
-}
-function pickDrop(type,code){
-    if(type==='from'){state.fromCurrency=code;saveFrom()}
-    else{state.toCurrency=code;saveTo()}
-    state.openDropdown=null;state.searchQuery="";
-    render();
-}
-function pickFromList(code){
-    state.fromCurrency=code;saveFrom();render();
-}
-
-document.addEventListener("click",(e)=>{
-    if(state.openDropdown){
-        const t=e.target;
-        const drops=document.querySelectorAll('.dropdown-enter');
-        const btns=document.querySelectorAll('[onclick*="toggleDrop"]');
-        let inside=false;
-        drops.forEach(d=>{if(d.contains(t))inside=true});
-        btns.forEach(b=>{if(b.contains(t))inside=true});
-        if(!inside){state.openDropdown=null;state.searchQuery="";render()}
-    }
-});
-
-render();
-fetchRates();
-</script>
-</body>
-</html>
-
-
-+++ COPY-ME.html (修改后)
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -727,6 +139,7 @@ const CURRENCY_NAMES = {
     "WST": { "ru": "Самоанская тала", "en": "Samoan Tala" },
     "MOP": { "ru": "Патака Макао", "en": "Macanese Pataca" },
     "BND": { "ru": "Брунейский доллар", "en": "Brunei Dollar" },
+    "KHR": { "ru": "Камбоджийский риель", "en": "Cambodian Riel" },
     "BAM": { "ru": "Боснийская марка", "en": "Bosnia-Herzegovina Mark" },
     "HRK": { "ru": "Хорватская куна", "en": "Croatian Kuna" },
     "GHS": { "ru": "Ганский седи", "en": "Ghanaian Cedi" },
@@ -853,7 +266,6 @@ let state = {
     toCurrency: localStorage.getItem("toCurrency") || "RUB",
     result: null,
     searchQuery: "",
-    listSearchQuery: "",
     favorites: JSON.parse(localStorage.getItem("favorites") || '["USD","EUR","RUB"]'),
     activeTab: "popular",
     showFromDropdown: false,
@@ -869,38 +281,6 @@ function saveFavorites() { localStorage.setItem("favorites", JSON.stringify(stat
 function saveFrom() { localStorage.setItem("fromCurrency", state.fromCurrency); }
 function saveTo() { localStorage.setItem("toCurrency", state.toCurrency); }
 function saveLang() { localStorage.setItem("lang", state.lang); }
-
-// ===== СОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ ФОКУСА (ИСПРАВЛЕНИЕ БАГА С КЛАВИАТУРОЙ) =====
-function saveFocus() {
-    const el = document.activeElement;
-    if (!el || el === document.body) return null;
-    const info = { id: el.id };
-    if (el.selectionStart !== undefined) {
-        info.ss = el.selectionStart;
-        info.se = el.selectionEnd;
-    }
-    return info;
-}
-
-function restoreFocus(info) {
-    if (!info || !info.id) return;
-    const el = document.getElementById(info.id);
-    if (!el) return;
-    el.focus();
-    if (info.ss !== undefined && el.setSelectionRange) {
-        try { el.setSelectionRange(info.ss, info.se); } catch(e) {}
-    }
-}
-
-// ===== СОРТИРОВКА: ИЗБРАННЫЕ СВЕРХУ =====
-function sortWithFavorites(arr) {
-    return [...arr].sort((a, b) => {
-        const aFav = state.favorites.includes(a) ? 0 : 1;
-        const bFav = state.favorites.includes(b) ? 0 : 1;
-        if (aFav !== bFav) return aFav - bFav;
-        return a.localeCompare(b);
-    });
-}
 
 // ===== ЗАГРУЗКА КУРСОВ =====
 async function fetchRates() {
@@ -959,47 +339,33 @@ function toggleFav(code) {
         state.favorites.push(code);
     }
     saveFavorites();
-    const f = saveFocus();
     render();
-    restoreFocus(f);
 }
 
-// ===== ФИЛЬТРАЦИЯ (С СОРТИРОВКОЙ ИЗБРАННЫХ СВЕРХУ) =====
+// ===== ФИЛЬТРАЦИЯ =====
 function getDisplayCurrencies() {
     if (!state.rates) return [];
-    const all = Object.keys(state.rates);
-    let filtered;
-    if (state.activeTab === "popular") {
-        filtered = all.filter(c => POPULAR.includes(c));
-    } else if (state.activeTab === "favorites") {
-        filtered = all.filter(c => state.favorites.includes(c));
-    } else {
-        const q = state.listSearchQuery.toLowerCase();
-        filtered = all.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
-    }
-    return sortWithFavorites(filtered);
-}
-
-function getDropdownCurrencies() {
-    if (!state.rates) return [];
-    const all = Object.keys(state.rates);
+    const all = Object.keys(state.rates).sort();
+    if (state.activeTab === "popular") return all.filter(c => POPULAR.includes(c));
+    if (state.activeTab === "favorites") return all.filter(c => state.favorites.includes(c));
     const q = state.searchQuery.toLowerCase();
-    const filtered = all.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
-    return sortWithFavorites(filtered);
+    return all.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
 }
 
 // ===== РЕНДЕР =====
 function render() {
-    const focusInfo = saveFocus();
+    const currencies = state.rates ? Object.keys(state.rates).sort() : [];
     const displayed = getDisplayCurrencies();
 
     document.getElementById("app").innerHTML = `
     <div class="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 relative overflow-hidden">
+        <!-- Background -->
         <div class="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-sky-200/40 to-transparent rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
         <div class="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-indigo-200/40 to-transparent rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
         <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-blue-200/20 to-cyan-200/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
 
         <div class="relative z-10 max-w-6xl mx-auto px-4 py-8 min-h-screen flex flex-col">
+            <!-- Header -->
             <header class="flex items-center justify-between mb-8 flex-wrap gap-4">
                 <div>
                     <h1 class="text-3xl md:text-4xl font-black bg-gradient-to-r from-sky-700 to-blue-600 bg-clip-text text-transparent">${t("title")}</h1>
@@ -1011,7 +377,9 @@ function render() {
                 </div>
             </header>
 
+            <!-- Main -->
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 flex-1">
+                <!-- Converter -->
                 <div class="lg:col-span-3">
                     <div class="bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl shadow-sky-100/30 p-6 md:p-8">
                         <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -1019,14 +387,16 @@ function render() {
                             ${t("converterTitle")}
                         </h2>
 
+                        <!-- Amount -->
                         <div class="mb-6">
                             <label class="block text-sm font-semibold text-slate-600 mb-2 ml-1">${t("amount")}</label>
                             <div class="relative">
-                                <input id="input-amount" type="number" value="${state.amount}" oninput="onAmountInput(this)" placeholder="${t("amountPlaceholder")}" class="w-full px-5 py-4 bg-white/80 backdrop-blur-sm border-2 border-sky-100 rounded-2xl text-xl font-bold text-slate-800 focus:outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 transition-all duration-300 placeholder:text-slate-300" />
+                                <input type="number" value="${state.amount}" oninput="state.amount=this.value;render()" placeholder="${t("amountPlaceholder")}" class="w-full px-5 py-4 bg-white/80 backdrop-blur-sm border-2 border-sky-100 rounded-2xl text-xl font-bold text-slate-800 focus:outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 transition-all duration-300 placeholder:text-slate-300" />
                                 <span class="absolute right-5 top-1/2 -translate-y-1/2 text-2xl">${getFlag(state.fromCurrency)}</span>
                             </div>
                         </div>
 
+                        <!-- Selectors -->
                         <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-end mb-6">
                             <div class="relative">
                                 <label class="block text-sm font-semibold text-slate-600 mb-2 ml-1">${t("from")}</label>
@@ -1059,6 +429,7 @@ function render() {
                             </div>
                         </div>
 
+                        <!-- Convert button -->
                         <button onclick="doConvert()" class="w-full py-4 bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-300/50 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 relative overflow-hidden group">
                             <span class="relative z-10">${t("convert")}</span>
                         </button>
@@ -1083,6 +454,7 @@ function render() {
                     </div>
                 </div>
 
+                <!-- Currency List -->
                 <div class="lg:col-span-2">
                     <div class="bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl shadow-sky-100/30 p-6 h-full flex flex-col">
                         <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -1090,6 +462,7 @@ function render() {
                             ${t("listTitle")}
                         </h2>
 
+                        <!-- Tabs -->
                         <div class="flex gap-1 bg-sky-50/50 rounded-xl p-1 mb-4">
                             <button onclick="setTab('popular')" class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-300 ${state.activeTab === 'popular' ? 'bg-white shadow-md text-sky-700' : 'text-slate-500 hover:text-sky-600'}">${t("popular")}</button>
                             <button onclick="setTab('favorites')" class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-300 ${state.activeTab === 'favorites' ? 'bg-white shadow-md text-amber-600' : 'text-slate-500 hover:text-amber-500'}">★ ${t("favorites")}</button>
@@ -1098,10 +471,11 @@ function render() {
 
                         ${state.activeTab === 'all' ? `<div class="mb-4 relative">
                             <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input id="input-list-search" type="text" placeholder="${t("searchPlaceholder")}" value="${state.listSearchQuery}" oninput="onListSearchInput(this)" class="w-full pl-10 pr-4 py-3 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 transition-all" />
+                            <input type="text" placeholder="${t("searchPlaceholder")}" value="${state.searchQuery}" oninput="state.searchQuery=this.value;render()" class="w-full pl-10 pr-4 py-3 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 transition-all" />
                         </div>` : ''}
 
-                        <div id="currency-list" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[500px] scrollbar-thin">
+                        <!-- List -->
+                        <div class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[500px] scrollbar-thin">
                             ${displayed.length === 0 ? `<div class="text-center py-12 text-slate-400"><div class="text-4xl mb-2">🔍</div><div class="text-sm">${t("noResults")}</div></div>` : ''}
                             ${displayed.map(code => `
                                 <div class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md ${state.favorites.includes(code) ? 'bg-gradient-to-r from-amber-50/50 to-yellow-50/50 border-amber-200/60 hover:border-amber-300' : 'bg-white/50 border-sky-50 hover:border-sky-200 hover:bg-sky-50/30'}" onclick="selectFrom('${code}')">
@@ -1127,6 +501,7 @@ function render() {
                 </div>
             </div>
 
+            <!-- Footer -->
             <footer class="mt-8 text-center">
                 <div class="inline-flex items-center gap-2 px-6 py-3 bg-white/50 backdrop-blur-sm rounded-full border border-white/60 shadow-sm">
                     <span class="text-sm font-bold text-slate-500">${t("developer")}</span>
@@ -1136,28 +511,25 @@ function render() {
             </footer>
         </div>
     </div>`;
-
-    restoreFocus(focusInfo);
 }
 
 function renderDropdown(type) {
-    const filtered = getDropdownCurrencies();
+    const currencies = state.rates ? Object.keys(state.rates).sort() : [];
+    const q = state.searchQuery.toLowerCase();
+    const filtered = currencies.filter(c => c.toLowerCase().includes(q) || getName(c).toLowerCase().includes(q));
     const current = type === 'from' ? state.fromCurrency : state.toCurrency;
-    const dropId = type === 'from' ? 'input-drop-search-from' : 'input-drop-search-to';
 
     return `<div class="absolute z-50 top-full mt-2 w-full bg-white/95 backdrop-blur-xl border border-sky-100 rounded-2xl shadow-2xl shadow-sky-200/30 overflow-hidden dropdown-enter">
         <div class="p-3 border-b border-sky-50">
-            <input id="${dropId}" type="text" placeholder="${t("searchPlaceholder")}" value="${state.searchQuery}" oninput="onDropSearchInput(this)" class="w-full px-4 py-2.5 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100" />
+            <input type="text" placeholder="${t("searchPlaceholder")}" value="${state.searchQuery}" oninput="state.searchQuery=this.value;render()" class="w-full px-4 py-2.5 bg-sky-50/50 border border-sky-100 rounded-xl text-sm focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100" />
         </div>
-        <div id="drop-list-${type}" class="max-h-72 overflow-y-auto p-2 scrollbar-thin">
-            ${filtered.length === 0 ? `<div class="text-center py-6 text-slate-400 text-sm">${t("noResults")}</div>` : ''}
+        <div class="max-h-72 overflow-y-auto p-2 scrollbar-thin">
             ${filtered.map(code => `
                 <button onclick="event.stopPropagation();selectCurrency('${type}','${code}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${current === code ? 'bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200' : 'hover:bg-sky-50/50'}">
                     <span class="text-2xl">${getFlag(code)}</span>
                     <div class="flex-1 text-left">
                         <span class="font-bold text-slate-800">${code}</span>
                         <span class="text-slate-500 text-sm ml-2">${getName(code)}</span>
-                        ${state.favorites.includes(code) ? '<span class="text-amber-400 text-xs ml-1">★</span>' : ''}
                     </div>
                     <button onclick="event.stopPropagation();toggleFav('${code}')" class="text-xl transition-all duration-200 ${state.favorites.includes(code) ? 'text-amber-400 scale-110' : 'text-slate-300 hover:text-amber-300'}">★</button>
                 </button>
@@ -1166,69 +538,11 @@ function renderDropdown(type) {
     </div>`;
 }
 
-// ===== ОБРАБОТЧИКИ ВВОДА (БЕЗ ПОТЕРИ ФОКУСА) =====
-function onAmountInput(el) {
-    state.amount = el.value;
-}
-
-function onListSearchInput(el) {
-    state.listSearchQuery = el.value;
-    updateListOnly();
-}
-
-function onDropSearchInput(el) {
-    state.searchQuery = el.value;
-    updateDropOnly();
-}
-
-function updateListOnly() {
-    const displayed = getDisplayCurrencies();
-    const listContainer = document.getElementById('currency-list');
-    if (!listContainer) return;
-    listContainer.innerHTML = displayed.length === 0
-        ? `<div class="text-center py-12 text-slate-400"><div class="text-4xl mb-2">🔍</div><div class="text-sm">${t("noResults")}</div></div>`
-        : displayed.map(code => `
-            <div class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md ${state.favorites.includes(code) ? 'bg-gradient-to-r from-amber-50/50 to-yellow-50/50 border-amber-200/60 hover:border-amber-300' : 'bg-white/50 border-sky-50 hover:border-sky-200 hover:bg-sky-50/30'}" onclick="selectFrom('${code}')">
-                <span class="text-2xl">${getFlag(code)}</span>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-slate-800 text-sm">${code}</span>
-                        ${state.favorites.includes(code) ? '<span class="text-amber-400 text-xs">★</span>' : ''}
-                    </div>
-                    <div class="text-xs text-slate-500 truncate">${getName(code)}</div>
-                </div>
-                ${state.rates && state.rates[code] ? `<div class="text-right"><div class="text-xs font-semibold text-slate-600">${state.rates[code] < 1 ? state.rates[code].toFixed(6) : state.rates[code].toFixed(2)}</div><div class="text-[10px] text-slate-400">${t("perUnit")}</div></div>` : ''}
-                <button onclick="event.stopPropagation();toggleFav('${code}')" class="text-lg transition-all duration-200 ${state.favorites.includes(code) ? 'text-amber-400 scale-110' : 'text-slate-300 hover:text-amber-300 hover:scale-110'}">★</button>
-            </div>
-        `).join('');
-}
-
-function updateDropOnly() {
-    const filtered = getDropdownCurrencies();
-    const type = state.showFromDropdown ? 'from' : 'to';
-    const current = type === 'from' ? state.fromCurrency : state.toCurrency;
-    const dropList = document.getElementById('drop-list-' + type);
-    if (!dropList) return;
-    dropList.innerHTML = filtered.length === 0
-        ? `<div class="text-center py-6 text-slate-400 text-sm">${t("noResults")}</div>`
-        : filtered.map(code => `
-            <button onclick="event.stopPropagation();selectCurrency('${type}','${code}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${current === code ? 'bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200' : 'hover:bg-sky-50/50'}">
-                <span class="text-2xl">${getFlag(code)}</span>
-                <div class="flex-1 text-left">
-                    <span class="font-bold text-slate-800">${code}</span>
-                    <span class="text-slate-500 text-sm ml-2">${getName(code)}</span>
-                    ${state.favorites.includes(code) ? '<span class="text-amber-400 text-xs ml-1">★</span>' : ''}
-                </div>
-                <button onclick="event.stopPropagation();toggleFav('${code}')" class="text-xl transition-all duration-200 ${state.favorites.includes(code) ? 'text-amber-400 scale-110' : 'text-slate-300 hover:text-amber-300'}">★</button>
-            </button>
-        `).join('');
-}
-
 // ===== ДЕЙСТВИЯ =====
 function setLang(lang) { state.lang = lang; saveLang(); render(); }
 function setTab(tab) { state.activeTab = tab; render(); }
-function toggleFromDropdown() { state.showFromDropdown = !state.showFromDropdown; state.showToDropdown = false; state.searchQuery = ""; render(); }
-function toggleToDropdown() { state.showToDropdown = !state.showToDropdown; state.showFromDropdown = false; state.searchQuery = ""; render(); }
+function toggleFromDropdown() { state.showFromDropdown = !state.showFromDropdown; state.showToDropdown = false; render(); }
+function toggleToDropdown() { state.showToDropdown = !state.showToDropdown; state.showFromDropdown = false; render(); }
 function selectCurrency(type, code) {
     if (type === 'from') { state.fromCurrency = code; saveFrom(); state.showFromDropdown = false; }
     else { state.toCurrency = code; saveTo(); state.showToDropdown = false; }
@@ -1237,18 +551,12 @@ function selectCurrency(type, code) {
 }
 function selectFrom(code) { state.fromCurrency = code; saveFrom(); render(); }
 
+// Закрытие дропдаунов по клику вне
 document.addEventListener("click", (e) => {
-    if (state.showFromDropdown || state.showToDropdown) {
-        const target = e.target;
-        const dropdowns = document.querySelectorAll('.dropdown-enter');
-        const buttons = document.querySelectorAll('[onclick*="toggleFromDropdown"], [onclick*="toggleToDropdown"]');
-        let inside = false;
-        dropdowns.forEach(d => { if (d.contains(target)) inside = true; });
-        buttons.forEach(b => { if (b.contains(target)) inside = true; });
-        if (!inside) {
+    if (!e.target.closest('.relative')) {
+        if (state.showFromDropdown || state.showToDropdown) {
             state.showFromDropdown = false;
             state.showToDropdown = false;
-            state.searchQuery = "";
             render();
         }
     }
